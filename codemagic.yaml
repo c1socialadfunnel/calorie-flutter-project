@@ -1,0 +1,127 @@
+workflows:
+  react-native-android:
+    name: React Native Android
+    max_build_duration: 120
+    instance_type: mac_mini_m1
+    environment:
+      android_signing:
+        - keystore_reference
+      groups:
+        - google_play
+      vars:
+        PACKAGE_NAME: "com.calorie.help"
+        GOOGLE_PLAY_TRACK: internal
+      node: 18.17.0
+      npm: 9.6.7
+    scripts:
+      - name: Install dependencies
+        script: |
+          npm install
+      - name: Set up local.properties
+        script: |
+          echo "sdk.dir=$ANDROID_SDK_ROOT" > "$CM_BUILD_DIR/android/local.properties"
+      - name: Build Android APK
+        script: |
+          npx expo run:android --variant release --no-build-cache
+    artifacts:
+      - android/app/build/outputs/**/*.apk
+      - android/app/build/outputs/**/mapping.txt
+    publishing:
+      email:
+        recipients:
+          - your-email@example.com
+        notify:
+          success: true
+          failure: false
+      google_play:
+        credentials: $GCLOUD_SERVICE_ACCOUNT_CREDENTIALS
+        track: $GOOGLE_PLAY_TRACK
+        submit_as_draft: true
+
+  react-native-ios:
+    name: React Native iOS
+    max_build_duration: 120
+    instance_type: mac_mini_m1
+    integrations:
+      app_store_connect: codemagic
+    environment:
+      ios_signing:
+        distribution_type: app_store
+        bundle_identifier: com.calorie.help
+      vars:
+        BUNDLE_ID: "com.calorie.help"
+        XCODE_WORKSPACE: "ios/CalorieHelp.xcworkspace"
+        XCODE_SCHEME: "CalorieHelp"
+        APP_STORE_CONNECT_ISSUER_ID: your_issuer_id
+        APP_STORE_CONNECT_KEY_IDENTIFIER: your_key_id
+        APP_STORE_CONNECT_PRIVATE_KEY: |
+          -----BEGIN PRIVATE KEY-----
+          your_private_key_here
+          -----END PRIVATE KEY-----
+      node: 18.17.0
+      npm: 9.6.7
+      cocoapods: default
+    scripts:
+      - name: Install dependencies
+        script: |
+          npm install
+      - name: Install CocoaPods dependencies
+        script: |
+          cd ios && pod install
+      - name: Set up code signing settings on Xcode project
+        script: |
+          xcode-project use-profiles
+      - name: Build iOS IPA
+        script: |
+          npx expo run:ios --configuration Release --no-build-cache
+    artifacts:
+      - ios/build/Build/Products/Release-iphoneos/*.ipa
+      - /tmp/xcodebuild_logs/*.log
+    publishing:
+      email:
+        recipients:
+          - your-email@example.com
+        notify:
+          success: true
+          failure: false
+      app_store_connect:
+        auth: integration
+        submit_to_testflight: true
+        beta_groups:
+          - App Store Connect Users
+        submit_to_app_store: false
+
+  expo-build:
+    name: Expo Build
+    max_build_duration: 120
+    instance_type: mac_mini_m1
+    environment:
+      groups:
+        - expo
+      vars:
+        EXPO_TOKEN: $EXPO_TOKEN
+      node: 18.17.0
+      npm: 9.6.7
+    scripts:
+      - name: Install dependencies
+        script: |
+          npm install
+      - name: Install Expo CLI
+        script: |
+          npm install -g @expo/cli
+      - name: Build Android APK
+        script: |
+          eas build --platform android --profile production --non-interactive
+      - name: Build iOS IPA
+        script: |
+          eas build --platform ios --profile production --non-interactive
+    artifacts:
+      - "*.apk"
+      - "*.ipa"
+    publishing:
+      email:
+        recipients:
+          - your-email@example.com
+        notify:
+          success: true
+          failure: false
